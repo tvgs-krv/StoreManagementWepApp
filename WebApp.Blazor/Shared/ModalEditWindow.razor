@@ -1,0 +1,142 @@
+﻿@using System.Net
+@using System.Text
+@using System.Text.Json
+@using WebApp.Blazor.Data
+
+<style>
+    .valid.modified:not([type=checkbox]) {
+        outline: 1px solid #26b050;
+    }
+
+    .invalid {
+        outline: 1px solid red;
+    }
+
+    .validation-message {
+        color: red;
+    }
+</style>
+
+<Modal @ref="_modalEdit" title="Edit store" IsVerticallyCentered="true">
+    <BodyTemplate>
+        <EditForm EditContext="@_editContext2">
+            <DataAnnotationsValidator />
+
+            <div class="form-group row mb-2">
+                <label class="col-md-4 col-form-label">Name:</label>
+                <div class="col-md-8">
+                    <InputText class="form-control" @bind-Value="StoreItem.Name" />
+                </div>
+            </div>
+
+            <div class="form-group row mb-2">
+                <label class="col-md-4 col-form-label">Email:</label>
+                <div class="col-md-8">
+                    <InputText class="form-control" @bind-Value="StoreItem.Email" />
+                </div>
+            </div>
+
+            <div class="form-group row mb-2">
+                <label class="col-md-4 col-form-label">Category:</label>
+                <div class="col-md-8">
+                    <NumberInput TValue="int" @bind-Value="StoreItem.Category" />
+                </div>
+            </div>
+
+            <div class="form-group row mb-2">
+                <label class="col-md-4 col-form-label">Country Code:</label>
+                <div class="col-md-8">
+                    <InputText class="form-control" @bind-Value="StoreItem.CountryCode" />
+                </div>
+            </div>
+
+            <div class="form-group row mb-2">
+                <label class="col-md-4 col-form-label">Mngr Email:</label>
+                <div class="col-md-8">
+                    <InputText class="form-control" @bind-Value="StoreItem.ManagerInfo.Email" />
+                </div>
+            </div>
+
+            <div class="form-group row mb-2">
+                <label class="col-md-4 col-form-label">Mngr FirstName:</label>
+                <div class="col-md-8">
+                    <InputText class="form-control" @bind-Value="StoreItem.ManagerInfo.FirstName" />
+                </div>
+            </div>
+
+            <div class="form-group row mb-2">
+                <label class="col-md-4 col-form-label">Mngr LastName:</label>
+                <div class="col-md-8">
+                    <InputText class="form-control" @bind-Value="StoreItem.ManagerInfo.LastName" />
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-12" style="display: flex; justify-content: flex-end;">
+                    <button class="btn btn-primary" style="margin-right: 10px;" @onclick="UpdateStore">Update</button>
+                    <button class="btn btn-secondary" @onclick="OnHideModalClick">Close</button>
+                </div>
+            </div>
+            <div class="row">
+                <span>@_statusMessage</span>
+            </div>
+        </EditForm>
+    </BodyTemplate>
+</Modal>
+
+@code {
+    //[Parameter]
+    public StoreItem StoreItem = new();
+    private EditContext _editContext2;
+    private Modal _modalEdit = default!;
+    private int amount = 0;
+    private string _baseUrl = @"http://95.163.241.37:5000/storeinfo/api/v1/storeinfo";
+    private string _statusMessage = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        _editContext2 = new EditContext(StoreItem);
+        base.OnInitialized();
+    }
+
+    private async Task<AutoCompleteDataProviderResult<StoreItem>> CustomersDataProvider(AutoCompleteDataProviderRequest<StoreItem> request)
+    {
+        return await Task.FromResult(new AutoCompleteDataProviderResult<StoreItem> { });
+    }
+
+    private async Task<(HttpStatusCode, string)> PostMessage(StoreItem storeItem)
+    {
+        using var client = new HttpClient();
+        var json = JsonSerializer.Serialize(storeItem);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        using var response = await client.PutAsync(_baseUrl, content);
+        return (response.StatusCode, await response.Content.ReadAsStringAsync());
+    }
+
+    public async Task OnShowModalClick(StoreItem item)
+    {
+        StoreItem = item;
+        await _modalEdit.ShowAsync();
+    }
+
+    private async Task OnHideModalClick()
+    {
+        StoreItem.Name = null;
+        StoreItem.ManagerInfo.Email = null;
+        StoreItem.ManagerInfo.FirstName = null;
+        StoreItem.ManagerInfo.LastName = null;
+        StoreItem.Category = 0;
+        StoreItem.CountryCode = null;
+        StoreItem.Email = null;
+        _statusMessage = null;
+        await _modalEdit.HideAsync();
+    }
+
+
+
+    public async Task UpdateStore()
+    {
+        var result = await PostMessage(StoreItem);
+        _statusMessage = result.Item1 == HttpStatusCode.NoContent ? "Запись успешно обновлена" : result.Item2;
+    }
+}

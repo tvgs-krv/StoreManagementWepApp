@@ -1,0 +1,142 @@
+﻿@page "/"
+@using WebApp.Blazor.Data
+@using System.Text.Json
+@using System.Text.Json.Serialization
+@using System.Text.Unicode
+@using System.Text.Encodings.Web
+@using System.Net
+@using System.Text
+@inject IHttpClientFactory ClientFactory
+
+<PageTitle>Index</PageTitle>
+
+<h1 style="margin-top: 1.5rem;">STORE MANAGEMENT</h1>
+
+<Button Color="ButtonColor.Primary" @onclick="OnShowModalClick">Add store</Button>
+<Button @onclick="OnGridUpdate"><Icon Name="IconName.Repeat" Color="IconColor.Primary" Size="IconSize.x3" /></Button>
+<ModalWindow @ref="_modal" />
+<ModalEditWindow @ref="_modalEditWindow" />
+
+
+<Grid @ref="grid" TItem="StoreItem"
+      Class="table table-hover table-bordered"
+      DataProvider="StoreInfoProvider"
+      AllowSorting="true"
+      Responsive="true" style="margin-top: 10px;">
+
+    <GridColumn TItem="StoreItem"
+                HeaderText="Delete"
+                TextAlignment="Alignment.Center">
+        <Button @onclick="@(() => OnDelete(@context))"><Icon Name="IconName.Trash3Fill" Color="IconColor.Danger" /></Button>
+    </GridColumn>
+
+    <GridColumn TItem="StoreItem"
+                HeaderText="Edit"
+                TextAlignment="Alignment.Center">
+        <Button @onclick="@(() => OnEdit(@context))"><Icon Name="IconName.PencilFill" Color="IconColor.Info" /></Button>
+    </GridColumn>
+
+    <GridColumn TItem="StoreItem" HeaderText="Store name" PropertyName="Name" SortKeySelector="item => item.Name">
+        @context.Name
+    </GridColumn>
+    <GridColumn TItem="StoreItem" HeaderText="Country Code" PropertyName="CountryCode" SortKeySelector="item => item.CountryCode">
+        @context.CountryCode
+    </GridColumn>
+    <GridColumn TItem="StoreItem" HeaderText="Store Email" PropertyName="Email" SortKeySelector="item => item.Email">
+        @context.Email
+    </GridColumn>
+    <GridColumn TItem="StoreItem" HeaderText="Store Mgr. FirstName" PropertyName="FirstName" SortKeySelector="item => item.ManagerInfo.FirstName">
+        @context.ManagerInfo.FirstName
+    </GridColumn>
+    <GridColumn TItem="StoreItem" HeaderText="Store Mgr. LastName" PropertyName="LastName" SortKeySelector="item => item.ManagerInfo.LastName">
+        @context.ManagerInfo.LastName
+    </GridColumn>
+    <GridColumn TItem="StoreItem" HeaderText="Store Mgr. Email" PropertyName="Email" SortKeySelector="item => item.ManagerInfo.Email">
+        @context.ManagerInfo.Email
+    </GridColumn>
+    <GridColumn TItem="StoreItem" HeaderText="Category" PropertyName="Category" SortKeySelector="item => item.Category">
+        @context.Category
+    </GridColumn>
+    <GridColumn TItem="StoreItem"
+                HeaderText="Details"
+                TextAlignment="Alignment.Center">
+        <a href="/storecard/@context.Id" class="text-decoration-none"><Icon Name="IconName.CardHeading" /></a>
+    </GridColumn>
+</Grid>
+
+
+
+@code {
+    [Inject] ModalService ModalService { get; set; } = default!;
+
+    private List<StoreItem>? _stores;
+    Grid<StoreItem> grid;
+
+    private ModalWindow _modal;
+    private ModalEditWindow _modalEditWindow;
+
+    private string _baseUrl = @"http://95.163.241.37:5000/storeinfo/api/v1/storeinfo";
+    private string _baseUrlStockData = @"http://95.163.241.37:5000/stockdata/api/v1/stockdata";
+
+
+    private async Task<GridDataProviderResult<StoreItem>> StoreInfoProvider(GridDataProviderRequest<StoreItem> request)
+    {
+        if (_stores is null)
+            _stores = await GetStores();
+
+        return await Task.FromResult(request.ApplyTo(_stores));
+    }
+
+    private async Task<List<StoreItem>?> GetStores()
+    {
+        HttpClient httpClient = ClientFactory.CreateClient();
+        var response = await httpClient.GetAsync($"{_baseUrl}?pageSize=200&pageIndex=0");
+
+        var json = await response.Content.ReadAsStringAsync();
+        var opt = new JsonSerializerOptions()
+            {
+                WriteIndented = true,
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+                Encoder = JavaScriptEncoder.Create(UnicodeRanges.All, UnicodeRanges.CyrillicSupplement),
+            };
+
+        var tt = JsonSerializer.Deserialize<List<StoreItem>>(json, opt);
+        return tt;
+    }
+
+    private async Task OnDelete(StoreItem storeItem)
+    {
+        using var client = new HttpClient();
+        using var response = await client.DeleteAsync($"{_baseUrl}/{storeItem.Id}");
+        await DeleteStockData(storeItem.Id);
+        if (response.StatusCode == HttpStatusCode.NoContent)
+        {
+            _stores.Remove(storeItem);
+            await grid.RefreshDataAsync();
+        }
+
+
+    }
+
+    private async Task OnEdit(StoreItem storeItem)
+    {
+        await _modalEditWindow.OnShowModalClick(storeItem);
+    }
+    private async Task DeleteStockData(Guid storeId)
+    {
+        using var client = new HttpClient();
+        using var response = await client.DeleteAsync($"{_baseUrlStockData}/{storeId}");
+    }
+
+    private async Task OnGridUpdate()
+    {
+        _stores = await GetStores();
+        await grid.RefreshDataAsync();
+    }
+
+    public async Task OnShowModalClick()
+    {
+        await _modal.OnShowModalClick();
+    }
+}

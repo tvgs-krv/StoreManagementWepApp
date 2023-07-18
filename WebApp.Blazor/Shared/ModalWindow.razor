@@ -1,0 +1,184 @@
+﻿@using System.ComponentModel.DataAnnotations
+@using System.Net
+@using System.Text
+@using System.Text.Encodings.Web
+@using System.Text.Json
+@using System.Text.Json.Serialization
+@using System.Text.Unicode
+@using WebApp.Blazor.Data
+
+<style>
+    .valid.modified:not([type=checkbox]) {
+        outline: 1px solid #26b050;
+    }
+
+    .invalid {
+        outline: 1px solid red;
+    }
+
+    .validation-message {
+        color: red;
+    }
+</style>
+
+<Modal @ref="_modal" title="Add new store" IsVerticallyCentered="true">
+    <BodyTemplate>
+        <EditForm EditContext="@_editContext">
+            <DataAnnotationsValidator />
+
+            <div class="form-group row mb-2">
+                <label class="col-md-4 col-form-label">Name:</label>
+                <div class="col-md-8">
+                    <InputText class="form-control" @bind-Value="storeItem.Name" />
+                </div>
+            </div>
+
+            <div class="form-group row mb-2">
+                <label class="col-md-4 col-form-label">Email:</label>
+                <div class="col-md-8">
+                    <InputText class="form-control" @bind-Value="storeItem.Email" />
+                </div>
+            </div>
+
+            <div class="form-group row mb-2">
+                <label class="col-md-4 col-form-label">Category:</label>
+                <div class="col-md-8">
+                    <NumberInput TValue="int" @bind-Value="storeItem.Category" />
+                </div>
+            </div>
+
+            <div class="form-group row mb-2">
+                <label class="col-md-4 col-form-label">Country Code:</label>
+                <div class="col-md-8">
+                    <InputText class="form-control" @bind-Value="storeItem.CountryCode" />
+                </div>
+            </div>
+
+            <div class="form-group row mb-2">
+                <label class="col-md-4 col-form-label">Mngr Email:</label>
+                <div class="col-md-8">
+                    <InputText class="form-control" @bind-Value="_managerInfo.Email" />
+                </div>
+            </div>
+
+            <div class="form-group row mb-2">
+                <label class="col-md-4 col-form-label">Mngr FirstName:</label>
+                <div class="col-md-8">
+                    <InputText class="form-control" @bind-Value="_managerInfo.FirstName" />
+                </div>
+            </div>
+
+            <div class="form-group row mb-2">
+                <label class="col-md-4 col-form-label">Mngr LastName:</label>
+                <div class="col-md-8">
+                    <InputText class="form-control" @bind-Value="_managerInfo.LastName" />
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-12" style="display: flex; justify-content: flex-end;">
+                    <button class="btn btn-primary" style="margin-right: 10px;" @onclick="AddStore">Add</button>
+                    <button class="btn btn-secondary" @onclick="OnHideModalClick">Close</button>
+                </div>
+            </div>
+            <div class="row">
+                <span>@_statusMessage</span>
+            </div>
+        </EditForm>
+    </BodyTemplate>
+</Modal>
+
+@code {
+    private StoreItem storeItem = new();
+    private ManagerInfo _managerInfo = new();
+    private EditContext _editContext;
+    private int amount = 0;
+    private Modal _modal = default!;
+    private string _baseUrl = @"http://95.163.241.37:5000/storeinfo/api/v1/storeinfo";
+    private string _statusMessage = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        _editContext = new EditContext(storeItem);
+        base.OnInitialized();
+    }
+
+    private async Task<AutoCompleteDataProviderResult<StoreItem>> CustomersDataProvider(AutoCompleteDataProviderRequest<StoreItem> request)
+    {
+        return await Task.FromResult(new AutoCompleteDataProviderResult<StoreItem> { });
+    }
+
+    private async Task<(HttpStatusCode, string)> PostMessage(StoreItem storeItem)
+    {
+        using var client = new HttpClient();
+        var json = JsonSerializer.Serialize(storeItem);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        using var response = await client.PostAsync(_baseUrl, content);
+        return (response.StatusCode, await response.Content.ReadAsStringAsync());
+    }
+
+    public async Task OnShowModalClick()
+    {
+        await _modal.ShowAsync();
+    }
+
+    private async Task OnHideModalClick()
+    {
+        storeItem.Name = null;
+        storeItem.ManagerInfo.Email = null;
+        storeItem.ManagerInfo.FirstName = null;
+        storeItem.ManagerInfo.LastName = null;
+        storeItem.Category = 0;
+        storeItem.CountryCode = null;
+        storeItem.Email = null;
+        _statusMessage = null;
+        await _modal.HideAsync();
+    }
+
+
+
+    public async Task AddStore()
+    {
+        storeItem.ManagerInfo = _managerInfo;
+        var result = await PostMessage(storeItem);
+        if (result.Item1 == HttpStatusCode.OK)
+        {
+            var json = result.Item2;
+            var opt = new JsonSerializerOptions()
+            {
+                WriteIndented = true,
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+                Encoder = JavaScriptEncoder.Create(UnicodeRanges.All, UnicodeRanges.CyrillicSupplement),
+            };
+
+            var id = JsonSerializer.Deserialize<Guid>(json, opt);
+            GenerateRandomData(id);
+        }
+        _statusMessage = result.Item1 == HttpStatusCode.OK ? "Запись успешно создана" : result.Item2;
+
+    }
+
+    private async Task GenerateRandomData(Guid storeId)
+    {
+
+        Random rnd = new Random();
+        for (int i = 0; i < 10; i++)
+        {
+            var stockData = new StockData
+                {
+                    Backstory = rnd.Next(1, 3000),
+                    Frontstore = rnd.Next(1, 10000),
+                    ShoppingWindow = rnd.Next(1, 50),
+                    Accuracy = rnd.NextDouble() * (1 - 0) + 0,
+                    OnFloorAvailability = rnd.NextDouble() * (1 - 0) + 0,
+                    MeanAge = rnd.Next(1, 20),
+                    StoreItemId = storeId
+                };
+            using var client2 = new HttpClient();
+            var json2 = JsonSerializer.Serialize(stockData);
+            var content2 = new StringContent(json2, Encoding.UTF8, "application/json");
+            using var response2 = await client2.PostAsync("http://95.163.241.37:5000/stockdata/api/v1/stockdata", content2);
+        }
+    }
+}

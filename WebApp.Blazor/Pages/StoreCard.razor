@@ -1,0 +1,186 @@
+﻿@page "/storecard/{storeId:guid}"
+@using System.Drawing
+@using System.Net
+@using System.Text.Encodings.Web
+@using System.Text.Json
+@using System.Text.Json.Serialization
+@using System.Text.Unicode
+@using BlazorBootstrap.Extensions
+@using StockData.Api.Application.Models
+@using WebApp.Blazor.Data
+@inject IHttpClientFactory ClientFactory
+
+@if (_store != null)
+{
+    <PageTitle>Store card</PageTitle>
+    <h1 style="margin-top: 1.5rem;">@_store.Name.ToUpper()</h1>
+
+    <div class="line_block">
+        <div style="margin-top: 1rem;">
+            <span>Country Code: @_store.CountryCode</span>
+        </div>
+        <div style="margin-top: 1rem;">
+            <span>Category: @_store.Category</span>
+        </div>
+        <div style="margin-top: 1rem;">
+            <span>Store Email: @_store.Email</span>
+        </div>
+        <div style="margin-top: 1rem;">
+            <span>Store Mgr. FirstName: @_store.ManagerInfo.FirstName</span>
+        </div>
+        <div style="margin-top: 1rem;">
+            <span>Store Mgr. LastName: @_store.ManagerInfo.LastName</span>
+        </div>
+        <div style="margin-top: 1rem;">
+            <span>Store Mgr. Email: @_store.ManagerInfo.Email</span>
+        </div>
+
+        @if (_stockDataSum != null)
+        {
+            <div style="margin-top: 1rem;">
+                <span>Total stock:</span><br>
+                <span>Min : @Math.Round(_stockDataSum.MinTotalStock, 2)</span>
+                <span>Med : @Math.Round(_stockDataSum.MedTotalStock, 2)</span>
+                <span>Max : @Math.Round(_stockDataSum.MaxTotalStock, 2)</span>
+            </div>
+            <div style="margin-top: 1rem;">
+                <span>Stock Accuracy:</span><br>
+                <span>Min : @Math.Round(_stockDataSum.MinAccuracy, 2)</span>
+                <span>Med : @Math.Round(_stockDataSum.MedAccuracy, 2)</span>
+                <span>Max : @Math.Round(_stockDataSum.MaxAccuracy, 2)</span>
+            </div>
+            <div style="margin-top: 1rem;">
+                <span>On-Floor Availability:</span><br>
+                <span>Min : @Math.Round(_stockDataSum.MinOnFloorAvailability, 2)</span>
+                <span>Med : @Math.Round(_stockDataSum.MedOnFloorAvailability, 2)</span>
+                <span>Max : @Math.Round(_stockDataSum.MaxOnFloorAvailability, 2)</span>
+            </div>
+            <div style="margin-top: 1rem;">
+                <span>Stock Mean Age:</span><br>
+                <span>Min : @Math.Round(_stockDataSum.MinMeanAge, 2)</span>
+                <span>Med : @Math.Round(_stockDataSum.MedMeanAge, 1)</span>
+                <span>Max : @Math.Round(_stockDataSum.MaxMeanAge, 2)</span>
+            </div>
+        }
+        else
+        {
+            <p>Loading...</p>
+        }
+    </div>
+    <div class="line_block">
+        <LineChart @ref="lineChart" Width="1000" Class="mb-4" />
+    </div>
+
+}
+else
+{
+    <p>Loading...</p>
+}
+
+@code {
+    [Parameter]
+    public Guid StoreId { get; set; }
+
+    private StoreItem _store;
+    private StockDataSum _stockDataSum;
+
+    private string _baseUrlStoreInfo = @"http://95.163.241.37:5000/storeinfo/api/v1/storeinfo";
+    private string _baseUrlStockData = @"http://95.163.241.37:5000/stockdata/api/v1/stockdata";
+
+    private LineChart lineChart;
+
+    private ChartData chartData;
+    private LineChartOptions chartOptions;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _store = await GetStoreById();
+        _stockDataSum = await GetStockDataByStoreById();
+        if (_stockDataSum != null)
+        {
+            chartData = new ChartData
+            {
+                Labels = new List<string> { "Min", "Med", "Max" },
+                Datasets = new List<IChartDataset>()
+            };
+
+            chartData.Datasets.Add(GetStockDataSet("Total stock", new List<double> { _stockDataSum.MinTotalStock, _stockDataSum.MedTotalStock, _stockDataSum.MaxTotalStock }, new int[3] { 255, 100, 32 }));
+            chartData.Datasets.Add(GetStockDataSet("Stock Accuracy", new List<double> { _stockDataSum.MinAccuracy, _stockDataSum.MedAccuracy, _stockDataSum.MaxAccuracy }, new int[3] { 150, 100, 32 }));
+            chartData.Datasets.Add(GetStockDataSet("On-Floor Availability", new List<double> { _stockDataSum.MinOnFloorAvailability, _stockDataSum.MedOnFloorAvailability, _stockDataSum.MaxOnFloorAvailability }, new int[3] { 80, 100, 32 }));
+            chartData.Datasets.Add(GetStockDataSet("Stock Mean Age", new List<double> { _stockDataSum.MinMeanAge, _stockDataSum.MedMeanAge, _stockDataSum.MaxMeanAge }, new int[3] { 80, 200, 32 }));
+
+            chartOptions = new LineChartOptions
+            {
+                Responsive = true,
+                Interaction = new Interaction { Mode = InteractionMode.Index }
+            };
+
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (lineChart != null)
+        {
+            await lineChart.UpdateAsync(chartData, chartOptions);
+            await base.OnAfterRenderAsync(firstRender);
+        }
+    }
+
+    private LineChartDataset GetStockDataSet(string labelName, List<double> stockData, int[] color)
+    {
+        var c = Color.FromArgb(color[0], color[1], color[2]);
+
+        return new LineChartDataset()
+            {
+                Label = labelName,
+                Data = stockData,
+                BackgroundColor = new List<string> { c.ToRgbString() },
+                BorderColor = new List<string> { c.ToRgbString() },
+                BorderWidth = new List<double> { 2 },
+                HoverBorderWidth = new List<double> { 4 },
+                PointBackgroundColor = new List<string> { c.ToRgbString() },
+                PointRadius = new List<int> { 0 },
+                PointHoverRadius = new List<int> { 4 },
+            };
+    }
+
+    private async Task<StoreItem> GetStoreById()
+    {
+        HttpClient httpClient = ClientFactory.CreateClient();
+        var response = await httpClient.GetAsync($"{_baseUrlStoreInfo}/{StoreId}");
+        var json = await response.Content.ReadAsStringAsync();
+        var opt = new JsonSerializerOptions()
+            {
+                WriteIndented = true,
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+                Encoder = JavaScriptEncoder.Create(UnicodeRanges.All, UnicodeRanges.CyrillicSupplement),
+            };
+
+        var tt = JsonSerializer.Deserialize<StoreItem>(json, opt);
+        return tt;
+    }
+
+    private async Task<StockDataSum?> GetStockDataByStoreById()
+    {
+        HttpClient httpClient = ClientFactory.CreateClient();
+        var response = await httpClient.GetAsync($"{_baseUrlStockData}/calc/{StoreId}");
+        if (response.StatusCode == HttpStatusCode.OK)
+        {
+            var json = await response.Content.ReadAsStringAsync();
+            var opt = new JsonSerializerOptions()
+                {
+                    WriteIndented = true,
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+                    Encoder = JavaScriptEncoder.Create(UnicodeRanges.All, UnicodeRanges.CyrillicSupplement),
+                };
+
+            var tt = JsonSerializer.Deserialize<StockDataSum>(json, opt);
+            return tt;
+        }
+
+        return null;
+    }
+}

@@ -1,0 +1,56 @@
+{
+  "Routes": [
+    {
+      "SwaggerKey": "storeinfo.api",
+      "DownstreamPathTemplate": "/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "95.163.241.37",
+          "Port": 5001
+        }
+      ],
+      "UpstreamPathTemplate": "/storeinfo/{everything}",
+      "UpstreamHttpMethod": []
+    },
+    {
+      "SwaggerKey": "stockdata.api",
+      "DownstreamPathTemplate": "/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        {
+          "Host": "95.163.241.37",
+          "Port": 5002
+        }
+      ],
+      "UpstreamPathTemplate": "/stockdata/{everything}",
+      "UpstreamHttpMethod": []
+    }    
+  ],
+  "SwaggerEndPoints": [
+    {
+      "Key": "storeinfo.api",
+      "Config": [
+        {
+          "Name": "StoreInfo API",
+          "Version": "v1",
+          "Url": "http://95.163.241.37:5001/swagger/v1/swagger.json"
+        }
+      ]
+    },
+    {
+      "Key": "stockdata.api",
+      "Config": [
+        {
+          "Name": "StockData API",
+          "Version": "v1",
+          "Url": "http://95.163.241.37:5002/swagger/v1/swagger.json"
+        }
+      ]
+    }
+  ],
+  "GlobalConfiguration": {
+    "RequestIdKey": "OcRequestId",
+    "AdministrationPath": "/administration"
+  }
+}
