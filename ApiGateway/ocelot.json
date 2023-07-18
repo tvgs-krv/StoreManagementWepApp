@@ -6,7 +6,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "95.163.241.37",
+          "Host": "localhost",
           "Port": 5001
         }
       ],
@@ -19,7 +19,7 @@
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [
         {
-          "Host": "95.163.241.37",
+          "Host": "localhost",
           "Port": 5002
         }
       ],
@@ -34,7 +34,7 @@
         {
           "Name": "StoreInfo API",
           "Version": "v1",
-          "Url": "http://95.163.241.37:5001/swagger/v1/swagger.json"
+          "Url": "http://localhost:5001/swagger/v1/swagger.json"
         }
       ]
     },
@@ -44,7 +44,7 @@
         {
           "Name": "StockData API",
           "Version": "v1",
-          "Url": "http://95.163.241.37:5002/swagger/v1/swagger.json"
+          "Url": "http://localhost:5002/swagger/v1/swagger.json"
         }
       ]
     }
